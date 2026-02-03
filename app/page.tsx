@@ -16,7 +16,6 @@ export default function Home() {
   const [isDarkTheme, setIsDarkTheme] = useState(true);
   const [showReactions, setShowReactions] = useState<number | null>(null);
   const [isListening, setIsListening] = useState(false);
-  const [suggestions, setSuggestions] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
 
@@ -83,20 +82,6 @@ export default function Home() {
     return codePatterns.some((pattern) => pattern.test(text));
   };
 
-  const generateSuggestions = (botResponse: string): string[] => {
-    const suggestions = [];
-    
-    if (botResponse.includes("?")) {
-      suggestions.push("Yes", "No", "Tell me more");
-    } else if (botResponse.toLowerCase().includes("help")) {
-      suggestions.push("Show examples", "Explain further", "Try something else");
-    } else {
-      suggestions.push("Continue", "Got it!", "Show more");
-    }
-    
-    return suggestions.slice(0, 3);
-  };
-
   async function sendMessage(messageText?: string) {
     const textToSend = messageText || input;
     if (!textToSend.trim()) return;
@@ -111,7 +96,6 @@ export default function Home() {
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsTyping(true);
-    setSuggestions([]);
 
     try {
       const res = await fetch("/api/chat", {
@@ -131,7 +115,6 @@ export default function Home() {
         };
         
         setMessages((prev) => [...prev, botMessage]);
-        setSuggestions(generateSuggestions(data.reply));
         setIsTyping(false);
       }, 500);
     } catch (error) {
@@ -312,10 +295,6 @@ export default function Home() {
 
         .reaction-picker {
           animation: slideUp 0.2s ease-out;
-        }
-
-        .suggestion-chip {
-          animation: slideUp 0.3s ease-out;
         }
 
         .voice-pulse {
@@ -672,31 +651,6 @@ export default function Home() {
                   <span className="typing-dot" style={{ width: "8px", height: "8px", borderRadius: "50%", background: theme.subText, display: "inline-block", animationDelay: "0.2s" }}></span>
                   <span className="typing-dot" style={{ width: "8px", height: "8px", borderRadius: "50%", background: theme.subText, display: "inline-block", animationDelay: "0.4s" }}></span>
                 </div>
-              </div>
-            )}
-
-            {suggestions.length > 0 && (
-              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", paddingTop: "8px" }}>
-                {suggestions.map((suggestion, idx) => (
-                  <button
-                    key={idx}
-                    className="suggestion-chip"
-                    onClick={() => sendMessage(suggestion)}
-                    style={{
-                      background: theme.messageBg,
-                      border: `1px solid ${theme.subText}`,
-                      borderRadius: "16px",
-                      padding: "8px 16px",
-                      fontSize: "13px",
-                      color: theme.text,
-                      cursor: "pointer",
-                      transition: "all 0.2s",
-                      animationDelay: `${idx * 0.1}s`,
-                    }}
-                  >
-                    {suggestion}
-                  </button>
-                ))}
               </div>
             )}
 
