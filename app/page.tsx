@@ -64,12 +64,14 @@ export default function Home() {
       <style>{`
         * {
           box-sizing: border-box;
+          -webkit-tap-highlight-color: transparent;
         }
 
         body {
           margin: 0;
           padding: 0;
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+          overflow: hidden;
         }
 
         @keyframes slideIn {
@@ -109,26 +111,27 @@ export default function Home() {
           background: rgba(0, 0, 0, 0.3);
         }
 
-        .hover-button:hover {
-          opacity: 0.8;
+        .hover-button:active {
+          opacity: 0.7;
+          transform: scale(0.95);
         }
 
         .input-field::placeholder {
           color: #667781;
         }
 
-        .attach-button:hover {
-          opacity: 1;
-          background: rgba(0, 0, 0, 0.05);
+        .attach-button:active,
+        .emoji-button:active {
+          background: rgba(0, 0, 0, 0.1);
         }
 
-        .send-button:hover:not(:disabled) {
+        .send-button:active {
           background: #00a884;
-          transform: scale(1.05);
+          transform: scale(0.95);
         }
 
-        .icon-button:hover {
-          background: rgba(255, 255, 255, 0.1);
+        .icon-button:active {
+          background: rgba(255, 255, 255, 0.15);
         }
 
         .message-wrapper {
@@ -168,25 +171,124 @@ export default function Home() {
           color: #53bdeb;
         }
 
-        .emoji-button:hover {
-          background: rgba(0, 0, 0, 0.05);
+        /* Universal mobile-first approach */
+        .container {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          width: 100vw;
+          height: 100vh;
+          height: 100dvh;
+          background: #111b21;
+          padding: 0;
+          margin: 0;
         }
 
-        /* Mobile Styles */
-        @media (max-width: 768px) {
-          .container {
-            padding: 0 !important;
-          }
+        .chat-box {
+          width: 100%;
+          height: 100%;
+          background: #0b141a;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          position: relative;
+        }
 
-          .chat-box {
-            max-width: 100% !important;
-            height: 100vh !important;
-            height: 100dvh !important;
-            border-radius: 0 !important;
-          }
+        /* Input box fixed positioning for all devices */
+        .input-container {
+          position: relative;
+          background: #202c33;
+          padding: 8px;
+          flex-shrink: 0;
+          width: 100%;
+        }
 
+        .input-box {
+          display: flex;
+          gap: 6px;
+          align-items: center;
+          background: #2a3942;
+          border-radius: 24px;
+          padding: 4px 6px;
+          width: 100%;
+          min-height: 44px;
+        }
+
+        .send-button,
+        .mic-button {
+          flex-shrink: 0;
+          min-width: 40px;
+          min-height: 40px;
+          display: flex !important;
+          align-items: center;
+          justify-content: center;
+        }
+
+        /* Small phones (< 375px) */
+        @media (max-width: 374px) {
           .header {
-            padding: 8px 12px !important;
+            padding: 6px 8px !important;
+          }
+
+          .avatar {
+            width: 32px !important;
+            height: 32px !important;
+            font-size: 16px !important;
+          }
+
+          .header-title {
+            font-size: 14px !important;
+          }
+
+          .header-subtitle {
+            font-size: 11px !important;
+          }
+
+          .icon-button {
+            width: 32px !important;
+            height: 32px !important;
+            font-size: 16px !important;
+            padding: 4px !important;
+          }
+
+          .message {
+            font-size: 13px !important;
+            padding: 5px 6px 7px 8px !important;
+          }
+
+          .input-box {
+            gap: 4px;
+            padding: 3px 4px;
+            min-height: 40px;
+          }
+
+          .send-button,
+          .mic-button {
+            min-width: 36px;
+            min-height: 36px;
+            font-size: 20px !important;
+          }
+
+          .emoji-button,
+          .attach-button {
+            font-size: 18px !important;
+            min-width: 32px;
+          }
+
+          .input-field {
+            font-size: 14px !important;
+            padding: 6px 8px !important;
+          }
+
+          .footer {
+            font-size: 9px !important;
+          }
+        }
+
+        /* Standard mobile phones (375px - 480px) */
+        @media (min-width: 375px) and (max-width: 480px) {
+          .header {
+            padding: 8px 10px !important;
           }
 
           .avatar {
@@ -209,48 +311,129 @@ export default function Home() {
             font-size: 18px !important;
           }
 
-          .messages {
-            padding: 12px 8px !important;
+          .input-box {
+            gap: 5px;
+            padding: 4px 5px;
           }
 
-          .message {
-            font-size: 14px !important;
-            max-width: 80% !important;
-          }
-
-          .input-container {
-            padding: 8px 8px 6px !important;
-          }
-
-          .footer {
-            font-size: 10px !important;
-            margin-top: 6px !important;
+          .send-button,
+          .mic-button {
+            min-width: 38px;
+            min-height: 38px;
           }
         }
 
-        /* Desktop Styles */
-        @media (min-width: 769px) {
+        /* Large phones (481px - 767px) */
+        @media (min-width: 481px) and (max-width: 767px) {
+          .header {
+            padding: 10px 12px !important;
+          }
+
+          .input-box {
+            gap: 6px;
+            padding: 5px 6px;
+          }
+        }
+
+        /* Tablets (768px - 1024px) */
+        @media (min-width: 768px) and (max-width: 1024px) {
           .container {
+            padding: 20px;
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
           }
 
           .chat-box {
+            max-width: 600px;
+            height: 85vh;
+            border-radius: 16px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+          }
+
+          .input-container {
+            padding: 10px 12px 8px;
+          }
+
+          .input-box {
+            padding: 5px 8px;
+            gap: 8px;
           }
         }
 
-        /* Tablet adjustments */
-        @media (min-width: 481px) and (max-width: 768px) {
+        /* Desktop (> 1024px) */
+        @media (min-width: 1025px) {
+          .container {
+            padding: 30px;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+          }
+
           .chat-box {
-            max-width: 90% !important;
-            height: 90vh !important;
-            border-radius: 12px !important;
+            max-width: 520px;
+            height: 740px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+          }
+
+          .input-container {
+            padding: 10px 16px 6px;
+          }
+
+          .input-box {
+            padding: 5px 10px;
+            gap: 8px;
+          }
+
+          .hover-button:hover {
+            opacity: 0.8;
+          }
+
+          .send-button:hover {
+            background: #00a884;
+            transform: scale(1.05);
+          }
+
+          .icon-button:hover {
+            background: rgba(255, 255, 255, 0.1);
+          }
+
+          .emoji-button:hover,
+          .attach-button:hover {
+            background: rgba(0, 0, 0, 0.05);
+          }
+        }
+
+        /* Landscape orientation fix for phones */
+        @media (max-height: 500px) and (orientation: landscape) {
+          .chat-box {
+            height: 100vh;
+          }
+
+          .messages {
+            padding: 10px 8px !important;
+          }
+
+          .input-container {
+            padding: 6px 8px 4px !important;
+          }
+
+          .footer {
+            margin-top: 4px !important;
+          }
+        }
+
+        /* iOS safe area support */
+        @supports (padding: max(0px)) {
+          .chat-box {
+            padding-bottom: env(safe-area-inset-bottom);
+          }
+
+          .input-container {
+            padding-bottom: max(8px, env(safe-area-inset-bottom));
           }
         }
       `}</style>
 
-      <div style={styles.container} className="container">
-        <div style={styles.chatBox} className="chat-box">
+      <div className="container">
+        <div className="chat-box">
           {/* Header */}
           <div style={styles.header} className="header">
             <div style={styles.headerContent}>
@@ -331,10 +514,7 @@ export default function Home() {
 
             {isTyping && (
               <div style={styles.messageWrapper} className="message-wrapper">
-                <div
-                  style={styles.typingIndicator}
-                  className="bot-message"
-                >
+                <div style={styles.typingIndicator} className="bot-message">
                   <span style={styles.typingDot} className="typing-dot"></span>
                   <span
                     style={{ ...styles.typingDot, animationDelay: "0.2s" }}
@@ -352,11 +532,12 @@ export default function Home() {
           </div>
 
           {/* Input */}
-          <div style={styles.inputContainer} className="input-container">
-            <div style={styles.inputBox}>
+          <div className="input-container">
+            <div className="input-box">
               <button
                 style={styles.emojiButton}
                 className="emoji-button hover-button"
+                type="button"
               >
                 😊
               </button>
@@ -371,6 +552,7 @@ export default function Home() {
               <button
                 style={styles.attachButton}
                 className="attach-button hover-button"
+                type="button"
               >
                 📎
               </button>
@@ -379,11 +561,16 @@ export default function Home() {
                   onClick={sendMessage}
                   style={styles.sendButton}
                   className="send-button"
+                  type="button"
                 >
                   <span style={styles.sendIcon}>➤</span>
                 </button>
               ) : (
-                <button style={styles.micButton} className="hover-button">
+                <button
+                  style={styles.micButton}
+                  className="mic-button hover-button"
+                  type="button"
+                >
                   🎤
                 </button>
               )}
@@ -399,31 +586,13 @@ export default function Home() {
 }
 
 const styles: { [key: string]: React.CSSProperties } = {
-  container: {
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    minHeight: "100vh",
-    background: "#111b21",
-    padding: "20px",
-  },
-  chatBox: {
-    width: "100%",
-    maxWidth: "520px",
-    height: "740px",
-    background: "#0b141a",
-    borderRadius: "12px",
-    display: "flex",
-    flexDirection: "column",
-    overflow: "hidden",
-    boxShadow: "0 2px 10px rgba(0, 0, 0, 0.3)",
-  },
   header: {
     background: "#202c33",
     padding: "10px 16px",
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
+    flexShrink: 0,
   },
   headerContent: {
     display: "flex",
@@ -442,6 +611,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     alignItems: "center",
     justifyContent: "center",
     fontSize: "20px",
+    flexShrink: 0,
   },
   avatarText: {
     fontSize: "20px",
@@ -477,6 +647,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    flexShrink: 0,
   },
   messages: {
     flex: 1,
@@ -484,6 +655,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     flexDirection: "column",
     gap: "8px",
     overflowY: "auto",
+    overflowX: "hidden",
     padding: "20px 12px",
     backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23182229' fill-opacity='0.15'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
     backgroundColor: "#0b141a",
@@ -519,6 +691,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     lineHeight: "19px",
     borderRadius: "8px",
     wordWrap: "break-word",
+    wordBreak: "break-word",
     boxShadow: "0 1px 0.5px rgba(0, 0, 0, 0.13)",
   },
   messageFooter: {
@@ -548,22 +721,10 @@ const styles: { [key: string]: React.CSSProperties } = {
     background: "#667781",
     display: "inline-block",
   },
-  inputContainer: {
-    background: "#202c33",
-    padding: "10px 16px 6px",
-  },
-  inputBox: {
-    display: "flex",
-    gap: "8px",
-    alignItems: "center",
-    background: "#2a3942",
-    borderRadius: "8px",
-    padding: "5px 10px",
-  },
   emojiButton: {
     background: "transparent",
     border: "none",
-    fontSize: "24px",
+    fontSize: "22px",
     cursor: "pointer",
     padding: "5px",
     borderRadius: "50%",
@@ -571,6 +732,8 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    flexShrink: 0,
+    minWidth: "36px",
   },
   input: {
     flex: 1,
@@ -580,6 +743,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: "15px",
     outline: "none",
     color: "#e9edef",
+    minWidth: 0,
   },
   attachButton: {
     background: "transparent",
@@ -592,28 +756,36 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    flexShrink: 0,
+    minWidth: "36px",
   },
   sendButton: {
     background: "#00a884",
     border: "none",
     borderRadius: "50%",
-    width: "42px",
-    height: "42px",
+    width: "40px",
+    height: "40px",
+    minWidth: "40px",
+    minHeight: "40px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     transition: "all 0.2s",
     cursor: "pointer",
+    flexShrink: 0,
   },
   micButton: {
     background: "transparent",
     border: "none",
-    fontSize: "24px",
+    fontSize: "22px",
     cursor: "pointer",
     padding: "5px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    flexShrink: 0,
+    minWidth: "40px",
+    minHeight: "40px",
   },
   sendIcon: {
     color: "#111b21",
