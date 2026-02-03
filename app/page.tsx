@@ -709,16 +709,18 @@ export default function Home() {
               background: theme.headerBg,
               padding: "10px 16px 6px",
               flexShrink: 0,
+              width: "100%",
             }}
           >
             <div
               style={{
                 display: "flex",
-                gap: "8px",
+                gap: "6px",
                 alignItems: "center",
                 background: theme.inputBg,
                 borderRadius: "24px",
-                padding: "5px 10px",
+                padding: "5px 8px",
+                maxWidth: "100%",
               }}
             >
               <button
@@ -729,6 +731,7 @@ export default function Home() {
                   cursor: "pointer",
                   padding: "5px",
                   flexShrink: 0,
+                  minWidth: "32px",
                 }}
                 className="hover-button"
               >
@@ -741,12 +744,14 @@ export default function Home() {
                 placeholder="Message"
                 style={{
                   flex: 1,
-                  padding: "9px 12px",
+                  padding: "9px 8px",
                   border: "none",
                   background: "transparent",
                   fontSize: "15px",
                   outline: "none",
                   color: theme.text,
+                  minWidth: 0,
+                  width: "100%",
                 }}
               />
               <button
@@ -757,6 +762,7 @@ export default function Home() {
                   cursor: "pointer",
                   padding: "5px",
                   flexShrink: 0,
+                  minWidth: "32px",
                 }}
                 className="hover-button"
               >
@@ -771,11 +777,14 @@ export default function Home() {
                     borderRadius: "50%",
                     width: "40px",
                     height: "40px",
+                    minWidth: "40px",
+                    minHeight: "40px",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     cursor: "pointer",
                     flexShrink: 0,
+                    marginLeft: "-2px",
                   }}
                 >
                   <span style={{ color: "#111b21", fontSize: "20px", fontWeight: "bold" }}>
@@ -792,6 +801,7 @@ export default function Home() {
                     cursor: "pointer",
                     padding: "5px",
                     flexShrink: 0,
+                    minWidth: "32px",
                   }}
                   className={isListening ? "voice-pulse" : "hover-button"}
                 >
