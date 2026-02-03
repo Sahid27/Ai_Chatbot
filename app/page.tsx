@@ -1,13 +1,24 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 
+interface Message {
+  role: "user" | "bot";
+  text: string;
+  timestamp: Date;
+  reactions?: string[];
+  isCode?: boolean;
+}
+
 export default function Home() {
   const [input, setInput] = useState<string>("");
-  const [messages, setMessages] = useState<
-    { role: "user" | "bot"; text: string; timestamp: Date }[]
-  >([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [isTyping, setIsTyping] = useState(false);
+  const [isDarkTheme, setIsDarkTheme] = useState(true);
+  const [showReactions, setShowReactions] = useState<number | null>(null);
+  const [isListening, setIsListening] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<any>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -17,33 +28,110 @@ export default function Home() {
     scrollToBottom();
   }, [messages, isTyping]);
 
-  async function sendMessage() {
-    if (!input.trim()) return;
+  // Initialize speech recognition
+  useEffect(() => {
+    if (typeof window !== "undefined" && "webkitSpeechRecognition" in window) {
+      const SpeechRecognition = (window as any).webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = false;
+      recognitionRef.current.lang = "en-US";
 
-    const userMessage = {
-      role: "user" as const,
-      text: input,
+      recognitionRef.current.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        setInput(transcript);
+        setIsListening(false);
+      };
+
+      recognitionRef.current.onerror = () => {
+        setIsListening(false);
+      };
+
+      recognitionRef.current.onend = () => {
+        setIsListening(false);
+      };
+    }
+  }, []);
+
+  const toggleVoiceInput = () => {
+    if (!recognitionRef.current) {
+      alert("Voice input not supported in your browser");
+      return;
+    }
+
+    if (isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    } else {
+      recognitionRef.current.start();
+      setIsListening(true);
+    }
+  };
+
+  const detectCodeInMessage = (text: string): boolean => {
+    const codePatterns = [
+      /function\s+\w+/,
+      /const\s+\w+\s*=/,
+      /let\s+\w+\s*=/,
+      /var\s+\w+\s*=/,
+      /class\s+\w+/,
+      /import\s+.*from/,
+      /export\s+(default|const)/,
+      /<\/?\w+>/,
+      /\w+\s*\([^)]*\)\s*{/,
+    ];
+    return codePatterns.some((pattern) => pattern.test(text));
+  };
+
+  const generateSuggestions = (botResponse: string): string[] => {
+    const suggestions = [];
+    
+    if (botResponse.includes("?")) {
+      suggestions.push("Yes", "No", "Tell me more");
+    } else if (botResponse.toLowerCase().includes("help")) {
+      suggestions.push("Show examples", "Explain further", "Try something else");
+    } else {
+      suggestions.push("Continue", "Got it!", "Show more");
+    }
+    
+    return suggestions.slice(0, 3);
+  };
+
+  async function sendMessage(messageText?: string) {
+    const textToSend = messageText || input;
+    if (!textToSend.trim()) return;
+
+    const userMessage: Message = {
+      role: "user",
+      text: textToSend,
       timestamp: new Date(),
+      reactions: [],
     };
 
     setMessages((prev) => [...prev, userMessage]);
-    const userInput = input;
     setInput("");
     setIsTyping(true);
+    setSuggestions([]);
 
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userInput }),
+        body: JSON.stringify({ message: textToSend }),
       });
       const data = await res.json();
 
       setTimeout(() => {
-        setMessages((prev) => [
-          ...prev,
-          { role: "bot", text: data.reply, timestamp: new Date() },
-        ]);
+        const botMessage: Message = {
+          role: "bot",
+          text: data.reply,
+          timestamp: new Date(),
+          reactions: [],
+          isCode: detectCodeInMessage(data.reply),
+        };
+        
+        setMessages((prev) => [...prev, botMessage]);
+        setSuggestions(generateSuggestions(data.reply));
         setIsTyping(false);
       }, 500);
     } catch (error) {
@@ -58,6 +146,59 @@ export default function Home() {
       sendMessage();
     }
   };
+
+  const addReaction = (messageIndex: number, emoji: string) => {
+    setMessages((prev) =>
+      prev.map((msg, idx) => {
+        if (idx === messageIndex) {
+          const reactions = msg.reactions || [];
+          return {
+            ...msg,
+            reactions: reactions.includes(emoji)
+              ? reactions.filter((r) => r !== emoji)
+              : [...reactions, emoji],
+          };
+        }
+        return msg;
+      })
+    );
+    setShowReactions(null);
+  };
+
+  const copyCode = (text: string) => {
+    navigator.clipboard.writeText(text);
+    alert("Code copied to clipboard!");
+  };
+
+  const toggleTheme = () => {
+    setIsDarkTheme(!isDarkTheme);
+  };
+
+  const theme = isDarkTheme
+    ? {
+        bg: "#111b21",
+        chatBg: "#0b141a",
+        headerBg: "#202c33",
+        messageBg: "#2a3942",
+        userBubble: "#005c4b",
+        botBubble: "#202c33",
+        text: "#e9edef",
+        subText: "#8696a0",
+        inputBg: "#2a3942",
+        pattern: "0.15",
+      }
+    : {
+        bg: "#f0f2f5",
+        chatBg: "#efeae2",
+        headerBg: "#008069",
+        messageBg: "#ffffff",
+        userBubble: "#d9fdd3",
+        botBubble: "#ffffff",
+        text: "#111b21",
+        subText: "#667781",
+        inputBg: "#f0f2f5",
+        pattern: "0.08",
+      };
 
   return (
     <>
@@ -94,6 +235,26 @@ export default function Home() {
           }
         }
 
+        @keyframes pulse {
+          0%, 100% {
+            transform: scale(1);
+          }
+          50% {
+            transform: scale(1.1);
+          }
+        }
+
+        @keyframes slideUp {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
         .messages-container::-webkit-scrollbar {
           width: 6px;
         }
@@ -103,35 +264,13 @@ export default function Home() {
         }
 
         .messages-container::-webkit-scrollbar-thumb {
-          background: rgba(0, 0, 0, 0.2);
+          background: ${isDarkTheme ? "rgba(255, 255, 255, 0.2)" : "rgba(0, 0, 0, 0.2)"};
           border-radius: 3px;
-        }
-
-        .messages-container::-webkit-scrollbar-thumb:hover {
-          background: rgba(0, 0, 0, 0.3);
         }
 
         .hover-button:active {
           opacity: 0.7;
           transform: scale(0.95);
-        }
-
-        .input-field::placeholder {
-          color: #667781;
-        }
-
-        .attach-button:active,
-        .emoji-button:active {
-          background: rgba(0, 0, 0, 0.1);
-        }
-
-        .send-button:active {
-          background: #00a884;
-          transform: scale(0.95);
-        }
-
-        .icon-button:active {
-          background: rgba(255, 255, 255, 0.15);
         }
 
         .message-wrapper {
@@ -149,7 +288,7 @@ export default function Home() {
           right: -8px;
           width: 0;
           height: 0;
-          border-left: 10px solid #d9fdd3;
+          border-left: 10px solid ${theme.userBubble};
           border-bottom: 10px solid transparent;
         }
 
@@ -160,7 +299,7 @@ export default function Home() {
           left: -8px;
           width: 0;
           height: 0;
-          border-right: 10px solid #ffffff;
+          border-right: 10px solid ${theme.botBubble};
           border-bottom: 10px solid transparent;
         }
 
@@ -171,7 +310,56 @@ export default function Home() {
           color: #53bdeb;
         }
 
-        /* Universal mobile-first approach */
+        .reaction-picker {
+          animation: slideUp 0.2s ease-out;
+        }
+
+        .suggestion-chip {
+          animation: slideUp 0.3s ease-out;
+        }
+
+        .voice-pulse {
+          animation: pulse 1.5s infinite;
+        }
+
+        .code-block {
+          background: ${isDarkTheme ? "#1e1e1e" : "#f6f8fa"};
+          border: 1px solid ${isDarkTheme ? "#333" : "#d0d7de"};
+          border-radius: 6px;
+          padding: 12px;
+          margin: 8px 0;
+          font-family: 'Courier New', monospace;
+          font-size: 13px;
+          overflow-x: auto;
+          position: relative;
+        }
+
+        .code-block::-webkit-scrollbar {
+          height: 6px;
+        }
+
+        .code-block::-webkit-scrollbar-thumb {
+          background: ${isDarkTheme ? "#555" : "#ccc"};
+          border-radius: 3px;
+        }
+
+        .copy-button {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          background: ${isDarkTheme ? "#333" : "#e1e4e8"};
+          border: none;
+          padding: 4px 8px;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 11px;
+          color: ${theme.text};
+        }
+
+        .copy-button:hover {
+          background: ${isDarkTheme ? "#444" : "#d0d7de"};
+        }
+
         .container {
           display: flex;
           justify-content: center;
@@ -179,7 +367,7 @@ export default function Home() {
           width: 100vw;
           height: 100vh;
           height: 100dvh;
-          background: #111b21;
+          background: ${theme.bg};
           padding: 0;
           margin: 0;
         }
@@ -187,182 +375,16 @@ export default function Home() {
         .chat-box {
           width: 100%;
           height: 100%;
-          background: #0b141a;
+          background: ${theme.chatBg};
           display: flex;
           flex-direction: column;
           overflow: hidden;
           position: relative;
         }
 
-        /* Input box fixed positioning for all devices */
-        .input-container {
-          position: relative;
-          background: #202c33;
-          padding: 8px;
-          flex-shrink: 0;
-          width: 100%;
-        }
-
-        .input-box {
-          display: flex;
-          gap: 6px;
-          align-items: center;
-          background: #2a3942;
-          border-radius: 24px;
-          padding: 4px 6px;
-          width: 100%;
-          min-height: 44px;
-        }
-
-        .send-button,
-        .mic-button {
-          flex-shrink: 0;
-          min-width: 40px;
-          min-height: 40px;
-          display: flex !important;
-          align-items: center;
-          justify-content: center;
-        }
-
-        /* Small phones (< 375px) */
-        @media (max-width: 374px) {
-          .header {
-            padding: 6px 8px !important;
-          }
-
-          .avatar {
-            width: 32px !important;
-            height: 32px !important;
-            font-size: 16px !important;
-          }
-
-          .header-title {
-            font-size: 14px !important;
-          }
-
-          .header-subtitle {
-            font-size: 11px !important;
-          }
-
-          .icon-button {
-            width: 32px !important;
-            height: 32px !important;
-            font-size: 16px !important;
-            padding: 4px !important;
-          }
-
-          .message {
-            font-size: 13px !important;
-            padding: 5px 6px 7px 8px !important;
-          }
-
-          .input-box {
-            gap: 4px;
-            padding: 3px 4px;
-            min-height: 40px;
-          }
-
-          .send-button,
-          .mic-button {
-            min-width: 36px;
-            min-height: 36px;
-            font-size: 20px !important;
-          }
-
-          .emoji-button,
-          .attach-button {
-            font-size: 18px !important;
-            min-width: 32px;
-          }
-
-          .input-field {
-            font-size: 14px !important;
-            padding: 6px 8px !important;
-          }
-
-          .footer {
-            font-size: 9px !important;
-          }
-        }
-
-        /* Standard mobile phones (375px - 480px) */
-        @media (min-width: 375px) and (max-width: 480px) {
-          .header {
-            padding: 8px 10px !important;
-          }
-
-          .avatar {
-            width: 36px !important;
-            height: 36px !important;
-            font-size: 18px !important;
-          }
-
-          .header-title {
-            font-size: 15px !important;
-          }
-
-          .header-subtitle {
-            font-size: 12px !important;
-          }
-
-          .icon-button {
-            width: 36px !important;
-            height: 36px !important;
-            font-size: 18px !important;
-          }
-
-          .input-box {
-            gap: 5px;
-            padding: 4px 5px;
-          }
-
-          .send-button,
-          .mic-button {
-            min-width: 38px;
-            min-height: 38px;
-          }
-        }
-
-        /* Large phones (481px - 767px) */
-        @media (min-width: 481px) and (max-width: 767px) {
-          .header {
-            padding: 10px 12px !important;
-          }
-
-          .input-box {
-            gap: 6px;
-            padding: 5px 6px;
-          }
-        }
-
-        /* Tablets (768px - 1024px) */
-        @media (min-width: 768px) and (max-width: 1024px) {
+        @media (min-width: 768px) {
           .container {
             padding: 20px;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-          }
-
-          .chat-box {
-            max-width: 600px;
-            height: 85vh;
-            border-radius: 16px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-          }
-
-          .input-container {
-            padding: 10px 12px 8px;
-          }
-
-          .input-box {
-            padding: 5px 8px;
-            gap: 8px;
-          }
-        }
-
-        /* Desktop (> 1024px) */
-        @media (min-width: 1025px) {
-          .container {
-            padding: 30px;
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
           }
 
@@ -372,159 +394,309 @@ export default function Home() {
             border-radius: 12px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
           }
-
-          .input-container {
-            padding: 10px 16px 6px;
-          }
-
-          .input-box {
-            padding: 5px 10px;
-            gap: 8px;
-          }
-
-          .hover-button:hover {
-            opacity: 0.8;
-          }
-
-          .send-button:hover {
-            background: #00a884;
-            transform: scale(1.05);
-          }
-
-          .icon-button:hover {
-            background: rgba(255, 255, 255, 0.1);
-          }
-
-          .emoji-button:hover,
-          .attach-button:hover {
-            background: rgba(0, 0, 0, 0.05);
-          }
-        }
-
-        /* Landscape orientation fix for phones */
-        @media (max-height: 500px) and (orientation: landscape) {
-          .chat-box {
-            height: 100vh;
-          }
-
-          .messages {
-            padding: 10px 8px !important;
-          }
-
-          .input-container {
-            padding: 6px 8px 4px !important;
-          }
-
-          .footer {
-            margin-top: 4px !important;
-          }
-        }
-
-        /* iOS safe area support */
-        @supports (padding: max(0px)) {
-          .chat-box {
-            padding-bottom: env(safe-area-inset-bottom);
-          }
-
-          .input-container {
-            padding-bottom: max(8px, env(safe-area-inset-bottom));
-          }
         }
       `}</style>
 
       <div className="container">
         <div className="chat-box">
           {/* Header */}
-          <div style={styles.header} className="header">
-            <div style={styles.headerContent}>
-              <div style={styles.avatarContainer}>
-                <div style={styles.avatar} className="avatar">
-                  <span style={styles.avatarText}>🤖</span>
+          <div
+            style={{
+              background: theme.headerBg,
+              padding: "10px 16px",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexShrink: 0,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              <div style={{ position: "relative" }}>
+                <div
+                  style={{
+                    width: "40px",
+                    height: "40px",
+                    borderRadius: "50%",
+                    background: "#00a884",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "20px",
+                    flexShrink: 0,
+                  }}
+                >
+                  🤖
                 </div>
               </div>
               <div>
-                <h3 style={styles.headerTitle} className="header-title">
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: "16px",
+                    fontWeight: "400",
+                    color: isDarkTheme ? "#e9edef" : "#ffffff",
+                  }}
+                >
                   AI Assistant
                 </h3>
-                <p style={styles.headerSubtitle} className="header-subtitle">
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: "13px",
+                    color: isDarkTheme ? "#8696a0" : "#d1f4cc",
+                    marginTop: "2px",
+                  }}
+                >
                   online
                 </p>
               </div>
             </div>
-            <div style={styles.headerActions}>
-              <button style={styles.iconButton} className="icon-button">
-                📹
+            <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+              <button
+                onClick={toggleTheme}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  fontSize: "20px",
+                  cursor: "pointer",
+                  padding: "8px",
+                  borderRadius: "50%",
+                  transition: "background 0.2s",
+                }}
+                className="hover-button"
+              >
+                {isDarkTheme ? "☀️" : "🌙"}
               </button>
-              <button style={styles.iconButton} className="icon-button">
-                📞
-              </button>
-              <button style={styles.iconButton} className="icon-button">
+              <button
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  fontSize: "20px",
+                  color: isDarkTheme ? "#aebac1" : "#ffffff",
+                  cursor: "pointer",
+                  padding: "8px",
+                  borderRadius: "50%",
+                }}
+                className="hover-button"
+              >
                 ⋮
               </button>
             </div>
           </div>
 
           {/* Messages */}
-          <div style={styles.messages} className="messages messages-container">
+          <div
+            style={{
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              gap: "8px",
+              overflowY: "auto",
+              padding: "20px 12px",
+              backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23${isDarkTheme ? "182229" : "d9d9d9"}' fill-opacity='${theme.pattern}'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+              backgroundColor: theme.chatBg,
+            }}
+            className="messages-container"
+          >
             {messages.length === 0 && (
-              <div style={styles.emptyState}>
-                <div style={styles.emptyStateIcon}>🔒</div>
-                <p style={styles.emptyStateText}>
-                  Messages are end-to-end encrypted. No one outside of this chat
-                  can read them.
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  height: "100%",
+                  textAlign: "center",
+                  padding: "40px",
+                }}
+              >
+                <div style={{ fontSize: "32px", marginBottom: "16px", opacity: 0.5 }}>
+                  🔒
+                </div>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: "14px",
+                    color: theme.subText,
+                    lineHeight: "20px",
+                  }}
+                >
+                  Messages are end-to-end encrypted. No one outside of this chat can
+                  read them.
                 </p>
               </div>
             )}
 
             {messages.map((m, i) => (
-              <div
-                key={i}
-                className="message-wrapper"
-                style={{
-                  ...styles.messageWrapper,
-                  justifyContent: m.role === "user" ? "flex-end" : "flex-start",
-                }}
-              >
+              <div key={i}>
                 <div
-                  className={
-                    m.role === "user" ? "user-message message" : "bot-message message"
-                  }
+                  className="message-wrapper"
                   style={{
-                    ...styles.message,
-                    background: m.role === "user" ? "#d9fdd3" : "#ffffff",
-                    color: "#111b21",
-                    marginLeft: m.role === "user" ? "auto" : "0",
-                    marginRight: m.role === "user" ? "0" : "auto",
+                    display: "flex",
+                    alignItems: "flex-end",
+                    justifyContent: m.role === "user" ? "flex-end" : "flex-start",
                     position: "relative",
                   }}
                 >
-                  {m.text}
-                  <div style={styles.messageFooter}>
-                    <span style={styles.timestamp}>
-                      {m.timestamp.toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </span>
-                    {m.role === "user" && <span className="checkmark">✓✓</span>}
+                  <div
+                    className={m.role === "user" ? "user-message" : "bot-message"}
+                    style={{
+                      padding: "6px 7px 8px 9px",
+                      maxWidth: "75%",
+                      fontSize: "14.2px",
+                      lineHeight: "19px",
+                      borderRadius: "8px",
+                      wordWrap: "break-word",
+                      boxShadow: "0 1px 0.5px rgba(0, 0, 0, 0.13)",
+                      background: m.role === "user" ? theme.userBubble : theme.botBubble,
+                      color: theme.text,
+                      position: "relative",
+                    }}
+                    onClick={() => setShowReactions(showReactions === i ? null : i)}
+                  >
+                    {m.isCode ? (
+                      <div className="code-block">
+                        <button
+                          className="copy-button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            copyCode(m.text);
+                          }}
+                        >
+                          📋 Copy
+                        </button>
+                        <pre style={{ margin: 0, whiteSpace: "pre-wrap" }}>{m.text}</pre>
+                      </div>
+                    ) : (
+                      m.text
+                    )}
+                    
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "flex-end",
+                        marginTop: "4px",
+                        gap: "4px",
+                      }}
+                    >
+                      <span style={{ fontSize: "11px", color: theme.subText }}>
+                        {m.timestamp.toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                      {m.role === "user" && <span className="checkmark">✓✓</span>}
+                    </div>
+
+                    {m.reactions && m.reactions.length > 0 && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          bottom: "-12px",
+                          right: "8px",
+                          background: theme.botBubble,
+                          borderRadius: "12px",
+                          padding: "2px 6px",
+                          fontSize: "14px",
+                          boxShadow: "0 1px 2px rgba(0,0,0,0.2)",
+                          display: "flex",
+                          gap: "2px",
+                        }}
+                      >
+                        {m.reactions.map((r, idx) => (
+                          <span key={idx}>{r}</span>
+                        ))}
+                      </div>
+                    )}
+
+                    {showReactions === i && (
+                      <div
+                        className="reaction-picker"
+                        style={{
+                          position: "absolute",
+                          bottom: "100%",
+                          left: m.role === "user" ? "auto" : "0",
+                          right: m.role === "user" ? "0" : "auto",
+                          background: theme.botBubble,
+                          borderRadius: "24px",
+                          padding: "8px 12px",
+                          marginBottom: "8px",
+                          boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+                          display: "flex",
+                          gap: "8px",
+                          zIndex: 10,
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {["👍", "❤️", "😂", "😮", "😢", "🙏"].map((emoji) => (
+                          <button
+                            key={emoji}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              addReaction(i, emoji);
+                            }}
+                            style={{
+                              background: "transparent",
+                              border: "none",
+                              fontSize: "20px",
+                              cursor: "pointer",
+                              padding: "4px",
+                            }}
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
             ))}
 
             {isTyping && (
-              <div style={styles.messageWrapper} className="message-wrapper">
-                <div style={styles.typingIndicator} className="bot-message">
-                  <span style={styles.typingDot} className="typing-dot"></span>
-                  <span
-                    style={{ ...styles.typingDot, animationDelay: "0.2s" }}
-                    className="typing-dot"
-                  ></span>
-                  <span
-                    style={{ ...styles.typingDot, animationDelay: "0.4s" }}
-                    className="typing-dot"
-                  ></span>
+              <div className="message-wrapper" style={{ display: "flex" }}>
+                <div
+                  className="bot-message"
+                  style={{
+                    background: theme.botBubble,
+                    padding: "10px 12px",
+                    borderRadius: "8px",
+                    display: "flex",
+                    gap: "4px",
+                    boxShadow: "0 1px 0.5px rgba(0, 0, 0, 0.13)",
+                    position: "relative",
+                  }}
+                >
+                  <span className="typing-dot" style={{ width: "8px", height: "8px", borderRadius: "50%", background: theme.subText, display: "inline-block" }}></span>
+                  <span className="typing-dot" style={{ width: "8px", height: "8px", borderRadius: "50%", background: theme.subText, display: "inline-block", animationDelay: "0.2s" }}></span>
+                  <span className="typing-dot" style={{ width: "8px", height: "8px", borderRadius: "50%", background: theme.subText, display: "inline-block", animationDelay: "0.4s" }}></span>
                 </div>
+              </div>
+            )}
+
+            {suggestions.length > 0 && (
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", paddingTop: "8px" }}>
+                {suggestions.map((suggestion, idx) => (
+                  <button
+                    key={idx}
+                    className="suggestion-chip"
+                    onClick={() => sendMessage(suggestion)}
+                    style={{
+                      background: theme.messageBg,
+                      border: `1px solid ${theme.subText}`,
+                      borderRadius: "16px",
+                      padding: "8px 16px",
+                      fontSize: "13px",
+                      color: theme.text,
+                      cursor: "pointer",
+                      transition: "all 0.2s",
+                      animationDelay: `${idx * 0.1}s`,
+                    }}
+                  >
+                    {suggestion}
+                  </button>
+                ))}
               </div>
             )}
 
@@ -532,12 +704,33 @@ export default function Home() {
           </div>
 
           {/* Input */}
-          <div className="input-container">
-            <div className="input-box">
+          <div
+            style={{
+              background: theme.headerBg,
+              padding: "10px 16px 6px",
+              flexShrink: 0,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                gap: "8px",
+                alignItems: "center",
+                background: theme.inputBg,
+                borderRadius: "24px",
+                padding: "5px 10px",
+              }}
+            >
               <button
-                style={styles.emojiButton}
-                className="emoji-button hover-button"
-                type="button"
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  fontSize: "22px",
+                  cursor: "pointer",
+                  padding: "5px",
+                  flexShrink: 0,
+                }}
+                className="hover-button"
               >
                 😊
               </button>
@@ -546,37 +739,75 @@ export default function Home() {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Message"
-                style={styles.input}
-                className="input-field"
+                style={{
+                  flex: 1,
+                  padding: "9px 12px",
+                  border: "none",
+                  background: "transparent",
+                  fontSize: "15px",
+                  outline: "none",
+                  color: theme.text,
+                }}
               />
               <button
-                style={styles.attachButton}
-                className="attach-button hover-button"
-                type="button"
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  fontSize: "20px",
+                  cursor: "pointer",
+                  padding: "5px",
+                  flexShrink: 0,
+                }}
+                className="hover-button"
               >
                 📎
               </button>
               {input.trim() ? (
                 <button
-                  onClick={sendMessage}
-                  style={styles.sendButton}
-                  className="send-button"
-                  type="button"
+                  onClick={() => sendMessage()}
+                  style={{
+                    background: "#00a884",
+                    border: "none",
+                    borderRadius: "50%",
+                    width: "40px",
+                    height: "40px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    flexShrink: 0,
+                  }}
                 >
-                  <span style={styles.sendIcon}>➤</span>
+                  <span style={{ color: "#111b21", fontSize: "20px", fontWeight: "bold" }}>
+                    ➤
+                  </span>
                 </button>
               ) : (
                 <button
-                  style={styles.micButton}
-                  className="mic-button hover-button"
-                  type="button"
+                  onClick={toggleVoiceInput}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    fontSize: "22px",
+                    cursor: "pointer",
+                    padding: "5px",
+                    flexShrink: 0,
+                  }}
+                  className={isListening ? "voice-pulse" : "hover-button"}
                 >
-                  🎤
+                  {isListening ? "🔴" : "🎤"}
                 </button>
               )}
             </div>
-            <div style={styles.footer} className="footer">
-              Made by <span style={styles.footerName}>SaHid</span>
+            <div
+              style={{
+                textAlign: "center",
+                fontSize: "11px",
+                color: theme.subText,
+                marginTop: "8px",
+              }}
+            >
+              Made by <span style={{ fontWeight: "600", color: "#00a884" }}>SaHid</span>
             </div>
           </div>
         </div>
@@ -584,222 +815,3 @@ export default function Home() {
     </>
   );
 }
-
-const styles: { [key: string]: React.CSSProperties } = {
-  header: {
-    background: "#202c33",
-    padding: "10px 16px",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    flexShrink: 0,
-  },
-  headerContent: {
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-  },
-  avatarContainer: {
-    position: "relative",
-  },
-  avatar: {
-    width: "40px",
-    height: "40px",
-    borderRadius: "50%",
-    background: "#00a884",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "20px",
-    flexShrink: 0,
-  },
-  avatarText: {
-    fontSize: "20px",
-  },
-  headerTitle: {
-    margin: 0,
-    fontSize: "16px",
-    fontWeight: "400",
-    color: "#e9edef",
-  },
-  headerSubtitle: {
-    margin: 0,
-    fontSize: "13px",
-    color: "#8696a0",
-    marginTop: "2px",
-  },
-  headerActions: {
-    display: "flex",
-    gap: "10px",
-    alignItems: "center",
-  },
-  iconButton: {
-    background: "transparent",
-    border: "none",
-    fontSize: "20px",
-    color: "#aebac1",
-    cursor: "pointer",
-    padding: "8px",
-    borderRadius: "50%",
-    transition: "background 0.2s",
-    width: "40px",
-    height: "40px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  messages: {
-    flex: 1,
-    display: "flex",
-    flexDirection: "column",
-    gap: "8px",
-    overflowY: "auto",
-    overflowX: "hidden",
-    padding: "20px 12px",
-    backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23182229' fill-opacity='0.15'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-    backgroundColor: "#0b141a",
-  },
-  emptyState: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    height: "100%",
-    textAlign: "center",
-    padding: "40px 60px",
-  },
-  emptyStateIcon: {
-    fontSize: "32px",
-    marginBottom: "16px",
-    opacity: 0.5,
-  },
-  emptyStateText: {
-    margin: 0,
-    fontSize: "14px",
-    color: "#8696a0",
-    lineHeight: "20px",
-  },
-  messageWrapper: {
-    display: "flex",
-    alignItems: "flex-end",
-  },
-  message: {
-    padding: "6px 7px 8px 9px",
-    maxWidth: "75%",
-    fontSize: "14.2px",
-    lineHeight: "19px",
-    borderRadius: "8px",
-    wordWrap: "break-word",
-    wordBreak: "break-word",
-    boxShadow: "0 1px 0.5px rgba(0, 0, 0, 0.13)",
-  },
-  messageFooter: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "flex-end",
-    marginTop: "4px",
-    gap: "4px",
-  },
-  timestamp: {
-    fontSize: "11px",
-    color: "#667781",
-  },
-  typingIndicator: {
-    background: "#ffffff",
-    padding: "10px 12px",
-    borderRadius: "8px",
-    display: "flex",
-    gap: "4px",
-    boxShadow: "0 1px 0.5px rgba(0, 0, 0, 0.13)",
-    position: "relative",
-  },
-  typingDot: {
-    width: "8px",
-    height: "8px",
-    borderRadius: "50%",
-    background: "#667781",
-    display: "inline-block",
-  },
-  emojiButton: {
-    background: "transparent",
-    border: "none",
-    fontSize: "22px",
-    cursor: "pointer",
-    padding: "5px",
-    borderRadius: "50%",
-    transition: "background 0.2s",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-    minWidth: "36px",
-  },
-  input: {
-    flex: 1,
-    padding: "9px 12px",
-    border: "none",
-    background: "transparent",
-    fontSize: "15px",
-    outline: "none",
-    color: "#e9edef",
-    minWidth: 0,
-  },
-  attachButton: {
-    background: "transparent",
-    border: "none",
-    fontSize: "20px",
-    cursor: "pointer",
-    padding: "5px",
-    borderRadius: "50%",
-    transition: "background 0.2s",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-    minWidth: "36px",
-  },
-  sendButton: {
-    background: "#00a884",
-    border: "none",
-    borderRadius: "50%",
-    width: "40px",
-    height: "40px",
-    minWidth: "40px",
-    minHeight: "40px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    transition: "all 0.2s",
-    cursor: "pointer",
-    flexShrink: 0,
-  },
-  micButton: {
-    background: "transparent",
-    border: "none",
-    fontSize: "22px",
-    cursor: "pointer",
-    padding: "5px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-    minWidth: "40px",
-    minHeight: "40px",
-  },
-  sendIcon: {
-    color: "#111b21",
-    fontSize: "20px",
-    fontWeight: "bold",
-  },
-  footer: {
-    textAlign: "center",
-    fontSize: "11px",
-    color: "#8696a0",
-    marginTop: "8px",
-  },
-  footerName: {
-    fontWeight: "600",
-    color: "#00a884",
-  },
-};
