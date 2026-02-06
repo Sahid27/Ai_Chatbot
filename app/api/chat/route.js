@@ -11,8 +11,18 @@ export async function POST(req) {
           Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
         },
         body: JSON.stringify({
-         model: "llama-3.1-8b-instant",
-          messages: [{ role: "user", content: message }],
+          model: "llama-3.1-8b-instant",
+          messages: [
+            {
+              role: "system",
+              content:
+                "তুমি একজন সহায়ক AI chatbot। ইউজার যে ভাষা ও স্টাইলে লিখবে, ঠিক সেই ভাষা ও স্টাইলেই উত্তর দেবে। যদি ইউজার বাংলা অক্ষরে লিখে তাহলে বাংলায় উত্তর দাও। যদি ইংরেজিতে লিখে তাহলে ইংরেজিতে উত্তর দাও। যদি ইংরেজি অক্ষরে বাংলা (Banglish) লিখে, তাহলে Banglish-এই উত্তর দাও। উত্তর সহজ, বন্ধুসুলভ ও পরিষ্কার রাখো।",
+            },
+            {
+              role: "user",
+              content: message,
+            },
+          ],
         }),
       }
     );
