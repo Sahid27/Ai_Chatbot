@@ -1,27 +1,5 @@
 let chatHistory = [];
 
-const systemPrompt = {
-  role: "system",
-  content: `
-You are a friendly, intelligent, human-like AI chatbot.
-
-LANGUAGE RULES (VERY IMPORTANT):
-- Default language is English
-- If the user writes in Bangla → reply in Bangla
-- If the user asks to reply in Bangla → reply in Bangla
-- Otherwise → reply in English
-- Never switch language unless the user does
-
-PERSONALITY RULES:
-- Be friendly by default
-- Be funny if the user jokes
-- Be serious if the user is serious
-- Be supportive if the user is emotional
-- Do not give confusing or opposite answers
-- Remember previous messages and respond naturally
-`,
-};
-
 export async function POST(req) {
   try {
     const { message } = await req.json();
@@ -42,7 +20,14 @@ export async function POST(req) {
         },
         body: JSON.stringify({
           model: "llama-3.1-8b-instant",
-          messages: [systemPrompt, ...chatHistory],
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are a helpful, intelligent, and polite AI assistant. Respond naturally and clearly, just like ChatGPT.",
+            },
+            ...chatHistory,
+          ],
         }),
       }
     );
@@ -51,7 +36,7 @@ export async function POST(req) {
 
     if (!data.choices || !data.choices[0]) {
       return new Response(
-        JSON.stringify({ reply: "AI is confused 😕" }),
+        JSON.stringify({ reply: "AI could not respond." }),
         { status: 500 }
       );
     }
@@ -64,19 +49,19 @@ export async function POST(req) {
       content: aiReply,
     });
 
-    // Memory limit
-    if (chatHistory.length > 12) {
-      chatHistory = chatHistory.slice(-12);
+    // Limit memory (avoid confusion)
+    if (chatHistory.length > 10) {
+      chatHistory = chatHistory.slice(-10);
     }
 
     return new Response(
       JSON.stringify({ reply: aiReply }),
       { headers: { "Content-Type": "application/json" } }
     );
-  } catch (err) {
-    console.error("SERVER ERROR:", err);
+  } catch (error) {
+    console.error("SERVER ERROR:", error);
     return new Response(
-      JSON.stringify({ reply: "Server error 😥" }),
+      JSON.stringify({ reply: "Something went wrong." }),
       { status: 500 }
     );
   }
