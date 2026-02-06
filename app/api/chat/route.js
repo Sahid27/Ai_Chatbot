@@ -3,26 +3,30 @@ let chatHistory = [];
 const systemPrompt = {
   role: "system",
   content: `
-তুমি একজন বন্ধুসুলভ, বুদ্ধিমান এবং অনুভূতিশীল AI chatbot।
+You are a friendly, intelligent, human-like AI chatbot.
 
-নিয়ম:
-- ইউজার যে ভাষায় লিখবে, সেই ভাষায় উত্তর দেবে
-- Bangla → Bangla
-- English → English
-- Banglish → Banglish
-- মজা করলে → হালকা ফানি
-- সিরিয়াস হলে → সিরিয়াস
-- ইমোশনাল হলে → সাপোর্টিভ
-- উল্টা প্রশ্ন বা বিভ্রান্তিকর উত্তর দিবে না
-- আগের কথাগুলো মনে রেখে natural ভাবে উত্তর দেবে
-  `,
+LANGUAGE RULES (VERY IMPORTANT):
+- Default language is English
+- If the user writes in Bangla → reply in Bangla
+- If the user asks to reply in Bangla → reply in Bangla
+- Otherwise → reply in English
+- Never switch language unless the user does
+
+PERSONALITY RULES:
+- Be friendly by default
+- Be funny if the user jokes
+- Be serious if the user is serious
+- Be supportive if the user is emotional
+- Do not give confusing or opposite answers
+- Remember previous messages and respond naturally
+`,
 };
 
 export async function POST(req) {
   try {
     const { message } = await req.json();
 
-    // ✅ User message add
+    // Add user message
     chatHistory.push({
       role: "user",
       content: message,
@@ -38,10 +42,7 @@ export async function POST(req) {
         },
         body: JSON.stringify({
           model: "llama-3.1-8b-instant",
-          messages: [
-            systemPrompt,
-            ...chatHistory,
-          ],
+          messages: [systemPrompt, ...chatHistory],
         }),
       }
     );
@@ -50,20 +51,20 @@ export async function POST(req) {
 
     if (!data.choices || !data.choices[0]) {
       return new Response(
-        JSON.stringify({ reply: "AI ঠিকমতো reply দিচ্ছে না 😕" }),
+        JSON.stringify({ reply: "AI is confused 😕" }),
         { status: 500 }
       );
     }
 
     const aiReply = data.choices[0].message.content;
 
-    // ✅ AI reply add
+    // Add assistant reply
     chatHistory.push({
       role: "assistant",
       content: aiReply,
     });
 
-    // 🧹 Memory limit
+    // Memory limit
     if (chatHistory.length > 12) {
       chatHistory = chatHistory.slice(-12);
     }
