@@ -4,33 +4,29 @@ export async function POST(req) {
   try {
     const { message } = await req.json();
 
-    // Add user message
     chatHistory.push({
       role: "user",
       content: message,
     });
 
-    const response = await fetch(
-      "https://api.groq.com/openai/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: "llama-3.1-8b-instant",
-          messages: [
-            {
-              role: "system",
-              content:
-                "You are a helpful, intelligent, and polite AI assistant. Respond naturally and clearly, just like ChatGPT.",
-            },
-            ...chatHistory,
-          ],
-        }),
-      }
-    );
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a helpful, intelligent, polite AI assistant. Respond naturally like ChatGPT.",
+          },
+          ...chatHistory,
+        ],
+      }),
+    });
 
     const data = await response.json();
 
@@ -43,13 +39,12 @@ export async function POST(req) {
 
     const aiReply = data.choices[0].message.content;
 
-    // Add assistant reply
     chatHistory.push({
       role: "assistant",
       content: aiReply,
     });
 
-    // Limit memory (avoid confusion)
+    // memory limit
     if (chatHistory.length > 10) {
       chatHistory = chatHistory.slice(-10);
     }
